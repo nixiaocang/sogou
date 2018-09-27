@@ -122,7 +122,7 @@ class SogouSemService(object):
         df = df.drop([0])
         return df
 
-    async def format_data(self, infos, fres, fmap, number_list):
+    async def format_data(self, infos, fres, fmap, number_list, special):
         cols = [col for col in fres]
         new_cols = []
         for col in cols:
@@ -144,6 +144,12 @@ class SogouSemService(object):
         if 'f_cpc_rate' in new_cols:
             fres['f_cpc_rate'] = pd.to_numeric(fres['f_cpc_rate'].str.split('%',expand=True)[0])/100
         fres[number_list] = fres[number_list].apply(pd.to_numeric)
+        if special:
+            return await self.deal_two(fres, infos)
+        else:
+            return await self.deal_one(fres, infos)
+
+    async def deal_one(self, fres, infos):
         dates = pd.date_range(infos['from_date'], infos['to_date'])
         result = {}
         for date in dates:
@@ -153,4 +159,33 @@ class SogouSemService(object):
             ttres = json.loads(tres)
             result[date] = ttres
         return result
+
+    async def deal_two(self, fres, infos):
+        startDate = infos['from_date'] + ' 00:00:00'
+        endDate = infos['to_date'] + ' 23:00:00'
+        dates = pd.date_range(startDate, endDate, freq='1h')
+        result = {}
+        hour_list = [
+                    "00:00:00","01:00:00","02:00:00","03:00:00",
+                    "04:00:00","05:00:00","06:00:00","07:00:00",
+                    "08:00:00","09:00:00","10:00:00","11:00:00",
+                    "12:00:00","13:00:00","14:00:00","15:00:00",
+                    "16:00:00","17:00:00","18:00:00","19:00:00",
+                    "20:00:00","21:00:00","22:00:00","23:00:00"
+                    ]
+        for date in dates:
+            sub_date = str(date)[:10]
+            edate = str(date)[11:]
+            sub_key = "%s-%s" % (edate, hour_list[(hour_list.index(edate)+1)%24])
+            if sub_date not in result:
+                result[sub_date] = {}
+            temp_df = fres[fres['f_date'] == str(date)[:13]]
+            temp_df['f_date'] = sub_date
+            tres = temp_df.to_json(orient="records")
+            ttres = json.loads(tres)
+            result[sub_date][sub_key] = ttres
+        return result
+
+
+
 
