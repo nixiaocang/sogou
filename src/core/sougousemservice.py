@@ -1,3 +1,4 @@
+import os
 import json
 import gzip
 import asyncio
@@ -5,6 +6,7 @@ import requests
 import threading
 import pandas as pd
 from suds.client import Client
+from util.config import get
 
 def synchronized(func):
     func.__lock__ = threading.Lock()
@@ -116,14 +118,20 @@ class SogouSemService(object):
         return data
 
     async def get_file(self, reportId, url):
+        path = get('global', 'log_path')
         res = requests.get(url)
-        gzipname = reportId + '.csv.gz'
-        filename = reportId + '.csv'
+        gzipname = os.path.join(path, reportId + '.csv.gz')
+        filename = os.path.join(path, reportId + '.csv')
+        print(path)
+        print(gzipname)
+        print(filename)
+        print("**********")
         with open(gzipname, "wb") as code:
             code.write(res.content)
         g = gzip.GzipFile(mode="rb", fileobj=open(gzipname,'rb'))
         with open(filename, "wb") as writer:
             writer.write(g.read())
+        raise Exception("test by jiaogf")
         df = pd.read_csv(filename, encoding='gbk')
         df = df.drop([0])
         return df
