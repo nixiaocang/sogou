@@ -97,15 +97,21 @@ class SogouSemService(object):
             raise Exception(message)
         return reportFilePath
 
-    async def get_keyword_info(self, infos, keyword_ids):
+    async def get_keyword_info(self, infos, keyword_ids, device, fmap, date, campaign_dict):
         client = self._create_client("CpcService", infos)
-        infos = client.service.getCpcByCpcId(cpcIds=keyword_ids, getTemp=0)
+        kword_infos = client.service.getCpcByCpcId(cpcIds=keyword_ids, getTemp=0)
         data = []
-        key_list = ['cpcId','cpcGrpId','cpc','price','visitUrl','mobileVisitUrl', 'matchType','cpcQuality']
-        for info in infos:
+        for kinfo in kword_infos:
             bag = {}
-            for key in key_list:
-                bag[key] = getattr(info, key)
+            for key in fmap.keys():
+                bag[fmap[key]] = getattr(kinfo, key)
+            bag['f_source'] = infos['pt_source']
+            bag['f_email'] = infos['pt_email']
+            bag['f_date'] = date
+            bag['f_account'] = infos['account']
+            bag['f_account_id'] = infos['account_id']
+            bag['f_device'] = device
+            bag['f_campaign_id'] = campaign_dict.get(bag['f_keyword_id'])
             data.append(bag)
         return data
 
@@ -144,6 +150,10 @@ class SogouSemService(object):
         if 'f_cpc_rate' in new_cols:
             fres['f_cpc_rate'] = pd.to_numeric(fres['f_cpc_rate'].str.split('%',expand=True)[0])/100
         fres[number_list] = fres[number_list].apply(pd.to_numeric)
+        fres['f_source'] = infos['pt_source']
+        fres['f_company_id'] = infos['pt_company_id']
+        fres['f_email'] = infos['pt_email']
+        fres['f_account_id'] = infos['account_id']
         if special:
             return await self.deal_two(fres, infos)
         else:

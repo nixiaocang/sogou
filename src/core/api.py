@@ -27,6 +27,7 @@ class ReportService(object):
         code, message, account_id = await sogou_core.auth_account(infos)
         if code != "SUCCESS":
             raise Exception(message)
+        infos['account_id'] = account_id
         bag = {}
         for platform in (1, 2):
             str_device = '计算机' if platform == 1 else '移动'
@@ -62,17 +63,12 @@ class ReportService(object):
         else:
             fres = None
             return {}
-        fres['f_account_id'] = account_id
         return await sogou_core.format_data(infos, fres, fmap, number_list, special)
 
 class KeywordReport(ReportService):
     @staticmethod
     async def do_action(infos):
         fmap = {
-                "f_email": "f_email",
-                "f_source": "f_source",
-                "f_company_id": "f_company_id",
-                "f_account_id": "f_account_id",
                 "日期": "f_date",
                 "账户": "f_account",
                 "推广计划": "f_campaign",
@@ -106,14 +102,45 @@ class KeywordReport(ReportService):
             print("get keyword report over")
 
 
+class KeywordInfoReport(ReportService):
+    async def do_action(infos):
+        fmap = {
+                "cpcGrpId": "f_company_group_id",
+                "cpcId": "f_keyword_id",
+                "cpc": "f_keyword",
+                "price": "f_keyword_offer_price",
+                "visitUrl": "f_pc_url",
+                "mobileVisitUrl": "f_mobile_url",
+                "matchType": "f_matched_type",
+                "cpcQuality": "f_keyword_quality"
+                }
+        try:
+            keyword_infos = await KeywordReport.do_action(infos)
+            if keyword_infos['status'] != 2000:
+                raise Exception(keyword_infos['message'])
+            kres = keyword_infos['content']
+            res = {}
+            for k, v in kres.items():
+                for device in ('计算机', '移动'):
+                    company_dict = {}
+                    ids = []
+                    for item in v:
+                        if item['f_device']== device and item['f_keyword_id']:
+                            company_dict[item['f_keyword_id']] = item['f_campaign_id']
+                            ids.append(item['f_keyword_id'])
+                    if ids:
+                        res[k] = await SogouSemService().get_keyword_info(infos, list(set(ids)), device, fmap, k, company_dict)
+            return {"status":2101, "message": "OK", "content":res}
+        except Exception as e:
+            traceback.print_exc()
+            return {"status":2101, "message": str(e), "content":{}}
+        finally:
+            print("get keyword info over")
+
 class SearchReport(ReportService):
     @staticmethod
     async def do_action(infos):
         fmap = {
-                "f_source": "f_source",
-                "f_company_id": "f_company_id",
-                "f_email": "f_email",
-                "f_account_id": "f_account_id",
                 "日期": "f_date",
                 "账户": "f_account",
                 "推广计划": "f_campaign",
@@ -155,9 +182,6 @@ class CreativeReport(ReportService):
     @staticmethod
     async def do_action(infos):
         fmap = {
-                "f_source": "f_source",
-                "f_company_id": "f_company_id",
-                "f_email": "f_email",
                 "日期": "f_date",
                 "账户": "f_account",
                 "推广计划": "f_campaign",
@@ -174,7 +198,6 @@ class CreativeReport(ReportService):
                 "点击数": "f_click_count",
                 "消耗": "f_cost",
                 "设备": "f_device",
-                "f_account_id": "f_account_id",
                 "推广计划ID": "f_campaign_id",
                 "推广组ID": "f_company_group_id"
                 }
@@ -200,12 +223,8 @@ class PlanReport(ReportService):
     @staticmethod
     async def do_action(infos):
         fmap = {
-                "f_source": "f_source",
-                "f_company_id": "f_company_id",
-                "f_email": "f_email",
                 "时间": "f_date",
                 "账户": "f_account",
-                "f_account_id": "f_account_id",
                 "推广计划": "f_campaign",
                 "推广计划ID": "f_campaign_id",
                 "展示数": "f_impression_count",
@@ -233,8 +252,9 @@ class PlanReport(ReportService):
 
 ActionMap = {
         "auth_account": DatasourceAuth,
-        "keyword_sougou_sem": KeywordReport,
+        "keyword_sougou_sem": KeywordInfoReport,
         "search_report_sougou_sem": SearchReport,
         "creative_report_sougou_sem": CreativeReport,
-        "campaign_report_sougou_sem": PlanReport
+        "campaign_report_sougou_sem": PlanReport,
+        "keyword_report_sougou_sem": KeywordReport
                 }
