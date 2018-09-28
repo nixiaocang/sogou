@@ -4,6 +4,8 @@ import pandas as pd
 from util.logger import print_stack, runtime_logger
 from util.tools import get_report_conf_info, keyword_info_fmap
 from core.sougousemservice import SogouSemService
+import warnings
+warnings.filterwarnings('ignore')
 
 logger = runtime_logger()
 
@@ -132,7 +134,7 @@ class KeywordInfoReport(ReportService):
                         res[k] = await SogouSemService().get_keyword_info(infos, list(set(ids)), device, fmap, k, company_dict)
             cost = time.time()-start
             logger.info("trace_id: %s 请求&格式化关键词信息数据完毕,耗时：%s" % (infos['trace_id'], cost))
-            return {"status":2101, "message": "OK", "content":res}
+            return {"status":2000, "message": "OK", "content":res}
         except Exception as e:
             print_stack()
             return {"status":2101, "message": str(e), "content":{}}

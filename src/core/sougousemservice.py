@@ -7,7 +7,8 @@ import threading
 import pandas as pd
 from suds.client import Client
 from util.config import Configuration, Singleton
-from util.logger import runtime_logger
+import warnings
+warnings.filterwarnings('ignore')
 
 @Singleton
 class SogouSemService(object):
@@ -128,7 +129,6 @@ class SogouSemService(object):
                     default = ""
                 fres.ix[fres[col] == '--', col] = default
             except Exception as e:
-                print(str(e))
                 pass
         if 'f_cpc_rate' in new_cols:
             fres['f_cpc_rate'] = pd.to_numeric(fres['f_cpc_rate'].str.split('%',expand=True)[0])/100
