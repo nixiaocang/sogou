@@ -120,7 +120,7 @@ class TestSogouApi(unittest.TestCase):
 
         pwd = os.path.realpath(__file__)
         path = os.path.abspath(os.path.dirname(pwd))
-        filename = os.path.join(path, '关键词报告.csv')
+        filename = os.path.join(path, 'example.csv')
         fres = pd.read_csv(filename, encoding='gbk')
         fmap = {
                 "日期": "f_date",
