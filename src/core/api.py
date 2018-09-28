@@ -2,7 +2,7 @@ import time
 import asyncio
 import pandas as pd
 from util.logger import print_stack, runtime_logger
-from util.tools import get_report_field_map
+from util.tools import get_report_conf_info, keyword_info_fmap
 from core.sougousemservice import SogouSemService
 
 logger = runtime_logger()
@@ -83,32 +83,37 @@ class ReportService(object):
         logger.info("trace_id: %s 格式化数据完成耗时:%s" % (infos['trace_id'], cost))
         return result
 
-class KeywordReport(ReportService):
+class BaseReport(ReportService):
     @staticmethod
     async def do_action(infos):
-        fmap, number_list = get_report_field_map("keyword")
-        try:
-            ReportRequestBag = {
-                'performanceData': ['cost','cpc','click','impression','ctr','position'],
+        performanceData = ['cost','cpc','click','impression','ctr','position']
+        if infos['route'] == "search_report_sougou_sem":
+            performanceData = performanceData[:3]
+        unitOfTime, special = (4, True) if infos['route'] == "campaign_report_sougou_sem" else (1, False)
+        fmap, number_list, reportType = get_report_conf_info(infos['route'])
+        ReportRequestBag = {
+                'performanceData': performanceData,
                 'startDate': infos['from_date'],
                 'endDate': infos['to_date'],
-                'reportType':7,
-                'unitOfTime':1
-                }
-            res = await ReportService().get_report_data(infos, ReportRequestBag, fmap, number_list)
+                'reportType':reportType,
+                'unitOfTime':unitOfTime
+        }
+        try:
+            res = await ReportService().get_report_data(infos, ReportRequestBag, fmap, number_list, special=special)
             return {"status":2000, "message":"OK", "content":res}
         except Exception as e:
             print_stack()
             return {"status":2101, "message": str(e), "content":{}}
         finally:
-            logger.info("trace_id: %s get keyword report over" % infos["trace_id"])
+            logger.info("trace_id: %s get %s report over" % (infos['trace_id'], infos['route']))
 
 
 class KeywordInfoReport(ReportService):
     async def do_action(infos):
+        infos['route'] = "keyword_report_sougou_sem"
         fmap = keyword_info_fmap
         try:
-            keyword_infos = await KeywordReport.do_action(infos)
+            keyword_infos = await BaseReport.do_action(infos)
             if keyword_infos['status'] != 2000:
                 raise Exception(keyword_infos['message'])
             start = time.time()
@@ -134,74 +139,11 @@ class KeywordInfoReport(ReportService):
         finally:
             logger.info("trace_id: %s get keyword info over" % infos["trace_id"])
 
-class SearchReport(ReportService):
-    @staticmethod
-    async def do_action(infos):
-        fmap, number_list = get_report_field_map("search")
-        try:
-            ReportRequestBag = {
-                'performanceData': ['cost', 'click', 'cpc'],
-                'startDate': infos['from_date'],
-                'endDate': infos['to_date'],
-                'reportType':6,
-                'unitOfTime':1
-                }
-            res = await ReportService().get_report_data(infos, ReportRequestBag, fmap, number_list)
-            return {"status":2000, "message":"OK", "content":res}
-        except Exception as e:
-            print_stack()
-            return {"status":2101, "message": str(e), "content":{}}
-        finally:
-            logger.info("trace_id: %s get search report over" % infos["trace_id"])
-
-
-class CreativeReport(ReportService):
-    @staticmethod
-    async def do_action(infos):
-        fmap, number_list = get_report_field_map("creative")
-        try:
-            ReportRequestBag = {
-                'performanceData': ['cost','cpc','click','impression','ctr','position'],
-                'startDate': infos['from_date'],
-                'endDate': infos['to_date'],
-                'reportType':4,
-                'unitOfTime':1
-                }
-            res = await ReportService().get_report_data(infos, ReportRequestBag, fmap, number_list)
-            return {"status":2000, "message":"OK", "content":res}
-        except Exception as e:
-            print_stack()
-            return {"status":2101, "message": str(e), "content":{}}
-        finally:
-            logger.info("trace_id: %s get creative report over" % infos["trace_id"])
-
-
-class PlanReport(ReportService):
-    @staticmethod
-    async def do_action(infos):
-        fmap, number_list = get_report_field_map("plan")
-        try:
-            ReportRequestBag = {
-                'performanceData': ['cost','cpc','click','impression','ctr','position'],
-                'startDate': infos['from_date'],
-                'endDate': infos['to_date'],
-                'reportType':2,
-                'unitOfTime':4
-                }
-            res = await ReportService().get_report_data(infos, ReportRequestBag, fmap, number_list, special=True)
-            return {"status":2000, "message":"OK", "content":res}
-        except Exception as e:
-            print_stack()
-            return {"status":2101, "message": str(e), "content":{}}
-        finally:
-            logger.info("trace_id: %s get plan report over" % infos["trace_id"])
-
-
 ActionMap = {
         "auth_account": DatasourceAuth,
         "keyword_sougou_sem": KeywordInfoReport,
-        "search_report_sougou_sem": SearchReport,
-        "creative_report_sougou_sem": CreativeReport,
-        "campaign_report_sougou_sem": PlanReport,
-        "keyword_report_sougou_sem": KeywordReport
+        "search_report_sougou_sem": BaseReport,
+        "keyword_report_sougou_sem": BaseReport,
+        "creative_report_sougou_sem": BaseReport,
+        "campaign_report_sougou_sem": BaseReport,
                 }

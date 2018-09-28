@@ -14,14 +14,16 @@ from src.util.logger import runtime_logger
 class BaseHandler(tornado.web.RequestHandler):
     route = None
     async def post(self):
-        runtime_logger().info("请求参数:%s" % self.request.body)
+        trace_id = str(uuid.uuid4()).replace('-','')
+        runtime_logger().info("trace_id:%s 请求参数:%s" % (trace_id, self.request.body))
         start = time.time()
         data = json.loads(self.request.body)
-        data['trace_id'] = str(uuid.uuid4()).replace('-','')
+        data['trace_id'] = trace_id
+        data['route'] = self.route
         res = await ActionMap[self.route].do_action(data)
         self.add_header("Content-Type", "application/json;charset=utf-8")
         cost = time.time() - start
-        runtime_logger().info("请求结束,耗时:%s" % str(cost))
+        runtime_logger().info("trace_id:%s 请求结束,耗时:%s" % (trace_id, str(cost)))
         self.write(json.dumps(res))
 
 class AuthAccountHandler(BaseHandler):

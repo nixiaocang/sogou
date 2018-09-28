@@ -107,7 +107,6 @@ class SogouSemService(object):
         g = gzip.GzipFile(mode="rb", fileobj=open(gzipname,'rb'))
         with open(filename, "wb") as writer:
             writer.write(g.read())
-        raise Exception("test by jiaogf")
         df = pd.read_csv(filename, encoding='gbk')
         df = df.drop([0])
         return df
