@@ -3,6 +3,9 @@ import time
 import tornado
 import asyncio
 import functools
+import tornado.web
+import tornado.ioloop
+import tornado.httpserver
 from src.core.api import ActionMap
 from src.util.config import get
 from src.util.logger import runtime_logger
@@ -15,7 +18,8 @@ class BaseHandler(tornado.web.RequestHandler):
         data = json.loads(self.request.body)
         res = await ActionMap[self.route].do_action(data)
         self.add_header("Content-Type", "application/json;charset=utf-8")
-        runtime_logger().info("请求结束,耗时:%s" % time.time()-start)
+        cost = time.time() - start
+        runtime_logger().info("请求结束,耗时:%s" % str(cost))
         self.write(json.dumps(res))
 
 class AuthAccountHandler(BaseHandler):

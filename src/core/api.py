@@ -1,6 +1,7 @@
 import traceback
 import asyncio
 import pandas as pd
+from util.logger import print_stack, runtime_logger
 from core.sougousemservice import SogouSemService
 
 class DatasourceAuth(object):
@@ -13,6 +14,7 @@ class DatasourceAuth(object):
             else:
                 return {"status":2100, "message":message}
         except Exception as e:
+            print_stack()
             return {"status":2101, "message":str(e)}
         finally:
             # log
