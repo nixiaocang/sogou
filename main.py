@@ -1,5 +1,6 @@
 import json
 import time
+import uuid
 import tornado
 import asyncio
 import functools
@@ -7,7 +8,7 @@ import tornado.web
 import tornado.ioloop
 import tornado.httpserver
 from src.core.api import ActionMap
-from src.util.config import get
+from util.config import Configuration
 from src.util.logger import runtime_logger
 
 class BaseHandler(tornado.web.RequestHandler):
@@ -16,6 +17,7 @@ class BaseHandler(tornado.web.RequestHandler):
         runtime_logger().info("请求参数:%s" % self.request.body)
         start = time.time()
         data = json.loads(self.request.body)
+        data['trace_id'] = str(uuid.uuid4()).replace('-','')
         res = await ActionMap[self.route].do_action(data)
         self.add_header("Content-Type", "application/json;charset=utf-8")
         cost = time.time() - start
@@ -50,8 +52,10 @@ if __name__ == "__main__":
         (r"/creative_report_sougou_sem", CreativeReportHandler)
         ])
     http_server = tornado.httpserver.HTTPServer(app)
-    port = get("global", 'port')
-    debug_model = int(get('global', 'debug'))
+    conf = Configuration()
+    port = int(conf.get("global", 'port'))
+    debug_model = int(conf.get('global', 'debug'))
+    process_num = int(conf.get('global', 'process_num'))
     http_server.listen(int(port))
-    http_server.start(1 if debug_model else 10)
+    http_server.start(1 if debug_model else process_num)
     tornado.ioloop.IOLoop.current().start()

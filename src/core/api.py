@@ -1,8 +1,11 @@
-import traceback
+import time
 import asyncio
 import pandas as pd
 from util.logger import print_stack, runtime_logger
+from util.tools import get_report_field_map
 from core.sougousemservice import SogouSemService
+
+logger = runtime_logger()
 
 class DatasourceAuth(object):
     @staticmethod
@@ -14,18 +17,20 @@ class DatasourceAuth(object):
             else:
                 return {"status":2100, "message":message}
         except Exception as e:
+            logger.info("验证用户信息时出现错误:%s" % str(e))
             print_stack()
             return {"status":2101, "message":str(e)}
         finally:
-            # log
-            print("username:%s auth over" % userinfo['account'])
+            logger.info("trace_id: %s auth over" % userinfo['trace_id'])
 
 class ReportService(object):
     @staticmethod
     async def get_report_data(infos, ReportRequestBag, fmap, number_list, special=False):
         sogou_core = SogouSemService()
+        logger.info("trace_id: %s 开始进行日期合法性校验" % infos['trace_id'])
         if infos['from_date'] > infos['to_date']:
-            raise Exception("日期范围不合法")
+            raise Exception("日期范围不合法" % infos["account"])
+        logger.info("trace_id: %s 进行用户信息校验" % infos['trace_id'])
         code, message, account_id = await sogou_core.auth_account(infos)
         if code != "SUCCESS":
             raise Exception(message)
@@ -34,15 +39,18 @@ class ReportService(object):
         for platform in (1, 2):
             str_device = '计算机' if platform == 1 else '移动'
             ReportRequestBag['platform'] = platform
+            logger.info("trace_id: %s 开始获取:%s报告ID" % (infos['trace_id'], str_device))
             reportId = await sogou_core.get_report_Id(infos, ReportRequestBag)
+            logger.info("trace_id: %s 获取:%s报告ID:%s" % (infos['trace_id'], str_device, reportId))
             await asyncio.sleep(2)
             count = 0
             ready = False
+            logger.info("trace_id: %s 获取报告ID:%s的生成状态" % (infos['trace_id'], reportId))
             while count < 3:
                 try:
                     isGenerated = await sogou_core.get_report_status(infos, reportId)
                     if str(isGenerated) != '1':
-                        raise Exception("报告还未生成")
+                        raise Exception("trace_id: %s 报告还未生成" % infos["trace_id"])
                     ready = True
                     break
                 except Exception as e:
@@ -53,8 +61,11 @@ class ReportService(object):
                     if count == 3:
                         raise e
             if ready:
+                logger.info("trace_id: %s 获取报告ID:%s的下载链接" % (infos['trace_id'], reportId))
                 url = await sogou_core.get_report_url(infos, reportId)
+                logger.info("trace_id: %s 获取报告ID:%s的下载链接:%s" % (infos['trace_id'], reportId, url))
                 bag[platform] = await sogou_core.get_file(reportId, url)
+                logger.info("trace_id: %s 获取报告ID:%s的下载报告完成" % (infos['trace_id'], reportId))
                 bag[platform]['设备'] = str_device
         if bag.get(1) is not None and bag.get(2) is not None:
             fres = pd.concat([bag[1],bag[2]])
@@ -65,28 +76,17 @@ class ReportService(object):
         else:
             fres = None
             return {}
-        return await sogou_core.format_data(infos, fres, fmap, number_list, special)
+        logger.info("trace_id: %s 开始格式化数据" % infos['trace_id'])
+        start = time.time()
+        result = await sogou_core.format_data(infos, fres, fmap, number_list, special)
+        cost = time.time()-start
+        logger.info("trace_id: %s 格式化数据完成耗时:%s" % (infos['trace_id'], cost))
+        return result
 
 class KeywordReport(ReportService):
     @staticmethod
     async def do_action(infos):
-        fmap = {
-                "日期": "f_date",
-                "账户": "f_account",
-                "推广计划": "f_campaign",
-                "推广组": "f_campaign_group",
-                "消耗": "f_cost",
-                "点击均价": "f_cpc_avg_price",
-                "展示数": "f_impression_count",
-                "点击数": "f_click_count",
-                "点击率": "f_cpc_rate",
-                "关键词平均排名": "f_keyword_avg_billing",
-                "设备": "f_device",
-                "关键词id": "f_keyword_id",
-                "推广计划ID": "f_campaign_id",
-                "推广组ID": "f_company_group_id"
-                }
-        number_list = ["f_impression_count", "f_click_count", "f_keyword_avg_billing", "f_cost", "f_cpc_avg_price", "f_cpc_rate"]
+        fmap, number_list = get_report_field_map("keyword")
         try:
             ReportRequestBag = {
                 'performanceData': ['cost','cpc','click','impression','ctr','position'],
@@ -98,28 +98,21 @@ class KeywordReport(ReportService):
             res = await ReportService().get_report_data(infos, ReportRequestBag, fmap, number_list)
             return {"status":2000, "message":"OK", "content":res}
         except Exception as e:
-            traceback.print_exc()
+            print_stack()
             return {"status":2101, "message": str(e), "content":{}}
         finally:
-            print("get keyword report over")
+            logger.info("trace_id: %s get keyword report over" % infos["trace_id"])
 
 
 class KeywordInfoReport(ReportService):
     async def do_action(infos):
-        fmap = {
-                "cpcGrpId": "f_company_group_id",
-                "cpcId": "f_keyword_id",
-                "cpc": "f_keyword",
-                "price": "f_keyword_offer_price",
-                "visitUrl": "f_pc_url",
-                "mobileVisitUrl": "f_mobile_url",
-                "matchType": "f_matched_type",
-                "cpcQuality": "f_keyword_quality"
-                }
+        fmap = keyword_info_fmap
         try:
             keyword_infos = await KeywordReport.do_action(infos)
             if keyword_infos['status'] != 2000:
                 raise Exception(keyword_infos['message'])
+            start = time.time()
+            logger.info("trace_id: %s 开始请求&格式化关键词信息数据" % infos['trace_id'])
             kres = keyword_infos['content']
             res = {}
             for k, v in kres.items():
@@ -132,37 +125,19 @@ class KeywordInfoReport(ReportService):
                             ids.append(item['f_keyword_id'])
                     if ids:
                         res[k] = await SogouSemService().get_keyword_info(infos, list(set(ids)), device, fmap, k, company_dict)
+            cost = time.time()-start
+            logger.info("trace_id: %s 请求&格式化关键词信息数据完毕,耗时：%s" % (infos['trace_id'], cost))
             return {"status":2101, "message": "OK", "content":res}
         except Exception as e:
-            traceback.print_exc()
+            print_stack()
             return {"status":2101, "message": str(e), "content":{}}
         finally:
-            print("get keyword info over")
+            logger.info("trace_id: %s get keyword info over" % infos["trace_id"])
 
 class SearchReport(ReportService):
     @staticmethod
     async def do_action(infos):
-        fmap = {
-                "日期": "f_date",
-                "账户": "f_account",
-                "推广计划": "f_campaign",
-                "推广组": "f_campaign_group",
-                "关键词": "f_keyword",
-                "创意标题": "f_creative_title",
-                "创意描述1": "f_creative_memo1",
-                "创意描述2": "f_creative_memo2",
-                "创意访问URL": "f_creative_visit_url",
-                "创意展示URL": "f_creative_present_url",
-                "创意移动访问URL": "f_creative_mobile_visit_url",
-                "创意移动展示URL": "f_creative_mobile_present_url",
-                "搜索词": "f_search_word",
-                "点击数": "f_click_count",
-                "消耗": "f_cost",
-                "设备": "f_device",
-                "推广计划ID": "f_campaign_id",
-                "推广组ID": "f_company_group_id",
-                }
-        number_list = ["f_click_count", "f_cost"]
+        fmap, number_list = get_report_field_map("search")
         try:
             ReportRequestBag = {
                 'performanceData': ['cost', 'click', 'cpc'],
@@ -174,36 +149,16 @@ class SearchReport(ReportService):
             res = await ReportService().get_report_data(infos, ReportRequestBag, fmap, number_list)
             return {"status":2000, "message":"OK", "content":res}
         except Exception as e:
-            traceback.print_exc()
+            print_stack()
             return {"status":2101, "message": str(e), "content":{}}
         finally:
-            print("get search report over")
+            logger.info("trace_id: %s get search report over" % infos["trace_id"])
 
 
 class CreativeReport(ReportService):
     @staticmethod
     async def do_action(infos):
-        fmap = {
-                "日期": "f_date",
-                "账户": "f_account",
-                "推广计划": "f_campaign",
-                "推广组": "f_campaign_group",
-                "创意描述1": "f_creative_memo1",
-                "创意描述2": "f_creative_memo2",
-                "创意访问URL": "f_creative_visit_url",
-                "创意展示URL": "f_creative_present_url",
-                "创意移动访问URL": "f_creative_mobile_visit_url",
-                "创意移动展示URL": "f_creative_mobile_present_url",
-                "点击均价": "f_cpc_avg_price",
-                "展示数": "f_impression_count",
-                "点击率": "f_cpc_rate",
-                "点击数": "f_click_count",
-                "消耗": "f_cost",
-                "设备": "f_device",
-                "推广计划ID": "f_campaign_id",
-                "推广组ID": "f_company_group_id"
-                }
-        number_list = ["f_cpc_avg_price","f_impression_count","f_cpc_rate","f_click_count","f_cost"]
+        fmap, number_list = get_report_field_map("creative")
         try:
             ReportRequestBag = {
                 'performanceData': ['cost','cpc','click','impression','ctr','position'],
@@ -215,26 +170,16 @@ class CreativeReport(ReportService):
             res = await ReportService().get_report_data(infos, ReportRequestBag, fmap, number_list)
             return {"status":2000, "message":"OK", "content":res}
         except Exception as e:
-            traceback.print_exc()
+            print_stack()
             return {"status":2101, "message": str(e), "content":{}}
         finally:
-            print("get creative report over")
+            logger.info("trace_id: %s get creative report over" % infos["trace_id"])
 
 
 class PlanReport(ReportService):
     @staticmethod
     async def do_action(infos):
-        fmap = {
-                "时间": "f_date",
-                "账户": "f_account",
-                "推广计划": "f_campaign",
-                "推广计划ID": "f_campaign_id",
-                "展示数": "f_impression_count",
-                "点击数": "f_click_count",
-                "消耗": "f_cost",
-                "设备": "f_device"
-                }
-        number_list = ["f_impression_count","f_click_count","f_cost"]
+        fmap, number_list = get_report_field_map("plan")
         try:
             ReportRequestBag = {
                 'performanceData': ['cost','cpc','click','impression','ctr','position'],
@@ -246,10 +191,10 @@ class PlanReport(ReportService):
             res = await ReportService().get_report_data(infos, ReportRequestBag, fmap, number_list, special=True)
             return {"status":2000, "message":"OK", "content":res}
         except Exception as e:
-            traceback.print_exc()
+            print_stack()
             return {"status":2101, "message": str(e), "content":{}}
         finally:
-            print("get plan report over")
+            logger.info("trace_id: %s get plan report over" % infos["trace_id"])
 
 
 ActionMap = {

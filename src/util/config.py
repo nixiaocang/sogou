@@ -1,18 +1,30 @@
 #!/usr/bin/python
 # encoding:utf-8
 import os
+import threading
 from configparser import RawConfigParser
 
-def singleton(cls, *args, **kw):
+def synchronized(func):
+    func.__lock__ = threading.Lock()
+
+    def synced_func(*args, **kws):
+        with func.__lock__:
+            return func(*args, **kws)
+
+    return synced_func
+
+def Singleton(cls):
     instances = {}
-    def _singleton():
+
+    @synchronized
+    def get_instance(*args, **kw):
         if cls not in instances:
-            instances[cls] = cls(*args,**kw)
+            instances[cls] = cls(*args, **kw)
         return instances[cls]
-    return _singleton
 
+    return get_instance
 
-@singleton
+@Singleton
 class Configuration:
     def __init__(self, config_file=None):
         default_conf = "%s/%s.conf" % (os.getenv('CONF') or 'conf', "app")

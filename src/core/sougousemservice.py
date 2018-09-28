@@ -6,28 +6,8 @@ import requests
 import threading
 import pandas as pd
 from suds.client import Client
-from util.config import get
-
-def synchronized(func):
-    func.__lock__ = threading.Lock()
-
-    def synced_func(*args, **kws):
-        with func.__lock__:
-            return func(*args, **kws)
-
-    return synced_func
-
-
-def Singleton(cls):
-    instances = {}
-
-    @synchronized
-    def get_instance(*args, **kw):
-        if cls not in instances:
-            instances[cls] = cls(*args, **kw)
-        return instances[cls]
-
-    return get_instance
+from util.config import Configuration, Singleton
+from util.logger import runtime_logger
 
 @Singleton
 class SogouSemService(object):
@@ -118,14 +98,10 @@ class SogouSemService(object):
         return data
 
     async def get_file(self, reportId, url):
-        path = get('global', 'log_path')
+        path = Configuration().get('global', 'log_path')
         res = requests.get(url)
         gzipname = os.path.join(path, reportId + '.csv.gz')
         filename = os.path.join(path, reportId + '.csv')
-        print(path)
-        print(gzipname)
-        print(filename)
-        print("**********")
         with open(gzipname, "wb") as code:
             code.write(res.content)
         g = gzip.GzipFile(mode="rb", fileobj=open(gzipname,'rb'))
@@ -198,7 +174,7 @@ class SogouSemService(object):
             if sub_date not in result:
                 result[sub_date] = {}
             temp_df = fres[fres['f_date'] == str(date)[:13]]
-            temp_df['f_date'] = sub_date
+            temp_df['f_date'] = str(date)
             tres = temp_df.to_json(orient="records")
             ttres = json.loads(tres)
             result[sub_date][sub_key] = ttres
