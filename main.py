@@ -24,6 +24,7 @@ class BaseHandler(tornado.web.RequestHandler):
         self.add_header("Content-Type", "application/json;charset=utf-8")
         cost = time.time() - start
         runtime_logger().info("trace_id:%s 请求结束,耗时:%s" % (trace_id, str(cost)))
+        res['trace_id'] = trace_id
         self.write(json.dumps(res))
 
 class AuthAccountHandler(BaseHandler):
