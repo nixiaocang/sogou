@@ -11,11 +11,13 @@ tornado 5.1.1
 
 ```
 [global]
-debug=1        # 是否启动debug模式 0标识不启动 1标识启动
+debug=1        # 是否启动debug模式 0不启动 1启动
 port=8000      # 服务的端口号 
 log_path=log   # 日志路径 默认是$project/log
 process_num=10 # 生产环境下启动的服务进程数
 ```
+
+* 根据配置路径创建日志目录
 * 启动服务: `. ./bin/sogou.sh start`
 * 启动成功:
 
@@ -41,7 +43,7 @@ sogou_server                     RUNNING   pid 15434, uptime 0:00:02
 Unlinking stale socket /root/work/log/supervisor_sogou.sock
 sogou_server                     RUNNING   pid 15481, uptime 0:00:02
 ```
-###补充字段
+### 补充字段
 ```
 关键词报告补充字段:
 "关键词": "f_keyword"
@@ -61,7 +63,7 @@ sogou_server                     RUNNING   pid 15481, uptime 0:00:02
 "点击率": "f_cpc_rate"
 "关键词平均排名": "f_keyword_avg_billing"
 ```
-###异常排查
+### 异常排查
 每一个请求都有一个唯一的`trace_id`(该标识会在请求结果中返回), 当出现`异常`或者想查看某一个请求的具体`执行过程`、`请求耗时`,`数据转换耗时`时,可以执行如下命令来查看:
 
 * `cd $project/log`
