@@ -43,6 +43,47 @@ sogou_server                     RUNNING   pid 15434, uptime 0:00:02
 Unlinking stale socket /root/work/log/supervisor_sogou.sock
 sogou_server                     RUNNING   pid 15481, uptime 0:00:02
 ```
+* 非脚本方式启动:
+
+```
+. ./bin/env.sh
+python3 main.py
+```
+### 目录结构
+```
+.
+├── bin              # 服务脚本
+│   ├── env.sh       # 初始化环境变量脚本
+│   ├── sogou.sh     # 服务启动脚本
+│   └── test.sh      # 测试脚本
+├── conf             # 配置模块
+│   ├── app.conf     # 服务配置文件
+│   └── logging.conf # 日志模块配置文件
+├── __init__.py
+├── log              # 日志
+│   ├── runtime.log
+├── main.py          # 服务入口文件
+├── README.md        # 服务说明文档
+├── requirements.txt # 第三方依赖包 
+├── src                            # 源码文件夹
+│   ├── core                       # 核心源码文件夹
+│   │   ├── api.py                 # 接口实现类
+│   │   ├── __init__.py 
+│   │   └── sougousemservice.py    # 请求核心类
+│   ├── __init__.py
+│   └── util                       # 辅助模块
+│       ├── config.py              # 配置读取
+│       ├── __init__.py
+│       ├── logger.py              # 日志实现
+│       └── tools.py               # 字段配置
+├── supervisord.conf               # 守护进程配置
+└── test                           # 测试模块
+    ├── example.csv                # 样例数据
+    ├── __init__.py
+    └── sogou_api_test.py          # 测试文件
+
+```
+
 ### 补充字段
 ```
 关键词报告补充字段:
