@@ -169,14 +169,13 @@ class SogouSemService(object):
         for date in dates:
             sub_date = str(date)[:10]
             edate = str(date)[11:]
-            sub_key = "%s-%s" % (edate, hour_list[(hour_list.index(edate)+1)%24])
             if sub_date not in result:
-                result[sub_date] = {}
+                result[sub_date] = []
             temp_df = fres[fres['f_date'] == str(date)[:13]]
             temp_df['f_date'] = str(date)
             tres = temp_df.to_json(orient="records")
             ttres = json.loads(tres)
-            result[sub_date][sub_key] = ttres
+            result[sub_date] += ttres
         return result
 
 
