@@ -48,8 +48,8 @@ number_field_dict = {
                     "f_keyword_avg_billing", "f_cost", "f_cpc_avg_price"],
         "search_report_sougou_sem": ["f_click_count", "f_cost"],
         "creative_report_sougou_sem":["f_cpc_avg_price","f_impression_count",
-                    "f_cpc_rate","f_click_count","f_cost"],
-        "campaign_report_sougou_sem": ["f_impression_count","f_click_count","f_cost"]
+                    "f_cpc_rate","f_click_count","f_cost", "f_keyword_avg_billing"],
+        "campaign_report_sougou_sem": ["f_impression_count","f_click_count","f_cost", "f_keyword_avg_billing", "f_cpc_rate"]
         }
 
 keyword_info_fmap = {
